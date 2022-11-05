@@ -1,8 +1,6 @@
 use std::{
     borrow::Cow,
-    cmp,
-    collections::HashMap,
-    fmt,
+    cmp, fmt,
     io::{self, Write},
     path::{Path, PathBuf},
     process,
@@ -508,10 +506,11 @@ pub fn parse(input: &str) -> Result<Output> {
 
 pub fn print_languages(
     languages: &Languages,
+    curdir: &Path,
     list_files: bool,
     compact: bool,
     width: usize,
-) -> Result<String> {
+) -> Result<Vec<u8>> {
     let row_len = if list_files {
         width - 1
     } else {
@@ -524,6 +523,8 @@ pub fn print_languages(
         num_format::CustomFormat::default(),
     );
 
+    let languages = filter_languages(languages, curdir);
+
     if languages.iter().any(|(_, lang)| lang.inaccurate) {
         printer.print_inaccuracy_warning()?;
     }
@@ -531,10 +532,10 @@ pub fn print_languages(
     printer.print_header()?;
     printer.print_results(languages.iter(), compact)?;
     printer.print_total(&languages)?;
-    Ok(String::from_utf8(printer.writer().buffer().to_owned())?)
+    Ok(printer.writer().buffer().to_owned())
 }
 
-pub fn longest_common_prefix(paths: &Vec<PathBuf>) -> PathBuf {
+pub fn longest_common_prefix(paths: &Vec<&Path>) -> PathBuf {
     if paths.is_empty() {
         return PathBuf::new();
     }
@@ -550,4 +551,21 @@ pub fn longest_common_prefix(paths: &Vec<PathBuf>) -> PathBuf {
         );
     }
     path.components().take(len).collect()
+}
+
+fn filter_languages(languages: &Languages, curdir: &Path) -> Languages {
+    let mut new_languages = Languages::new();
+    for (language_type, language) in languages.iter() {
+        let mut new_language = Language::new();
+        for report in language.reports.iter() {
+            if report.name.starts_with(curdir) {
+                new_language.add_report(report.clone());
+                new_language.blanks += report.stats.blanks;
+                new_language.code += report.stats.code;
+                new_language.comments += report.stats.comments;
+            }
+        }
+        new_languages.insert(*language_type, new_language.summarise());
+    }
+    new_languages
 }
