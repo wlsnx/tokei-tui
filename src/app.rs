@@ -9,7 +9,7 @@ use std::{
 use crate::utils::{longest_common_prefix, parse, print_languages};
 use ansi_to_tui::IntoText;
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyCode};
+use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use tokei::Languages;
 
 use tui::{
@@ -17,7 +17,7 @@ use tui::{
     layout::{Constraint, Direction, Layout},
     style::{Modifier, Style},
     text::Text,
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
     Frame, Terminal,
 };
 
@@ -36,10 +36,11 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>) -> Result<()> {
         .iter()
         .flat_map(|(_, lan)| lan.reports.iter().map(|report| report.name.as_path()))
         .collect();
-    let root_buf = longest_common_prefix(&files);
-    let mut root = root_buf.as_path();
+    let prefix = longest_common_prefix(&files);
+    let mut root = prefix.as_path();
     let paths = path_map(files);
     let mut state = ListState::default();
+    let mut offset = 0;
 
     loop {
         let children = &paths[&root];
@@ -51,34 +52,54 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>) -> Result<()> {
                 root
             }
         };
+        let height = terminal.size()?.height - 2;
 
         terminal.draw(|f| {
             ui(
-                f, &languages, &curdir, &children, &mut state, list_files, compact,
+                f,
+                &languages,
+                &curdir,
+                &children,
+                &mut state,
+                &mut offset,
+                list_files,
+                compact,
             )
         })?;
 
         match event::read()? {
-            Event::Key(key) => match key.code {
-                KeyCode::Char('c') => compact = !compact,
-                KeyCode::Char('f') => list_files = !list_files,
-                KeyCode::Char('h') => {
-                    if let Some(parent) = root.parent() {
-                        if parent.as_os_str() != "" {
-                            root = parent;
-                            state.select(Some(0));
-                        }
-                    }
+            Event::Key(key) => match (key.code, key.modifiers) {
+                (KeyCode::Char('c'), KeyModifiers::NONE) => compact = !compact,
+
+                (KeyCode::Char('f'), KeyModifiers::NONE) => list_files = !list_files,
+                (KeyCode::Char('f'), KeyModifiers::CONTROL) => {
+                    offset = offset.saturating_add(height);
                 }
-                KeyCode::Char('j') => {
-                    let n = cmp::min(children.len(), state.selected().unwrap() + 1);
+                (KeyCode::Char('b'), KeyModifiers::CONTROL) => {
+                    offset = offset.saturating_sub(height);
+                }
+
+                (KeyCode::Char('j'), KeyModifiers::NONE) => {
+                    let n = cmp::min(children.len(), state.selected().unwrap().saturating_add(1));
                     state.select(Some(n));
+                    offset = 0;
                 }
-                KeyCode::Char('k') => {
+                (KeyCode::Char('J'), KeyModifiers::SHIFT) => state.select(Some(children.len())),
+
+                (KeyCode::Char('k'), KeyModifiers::NONE) => {
                     let n = state.selected().unwrap().saturating_sub(1);
                     state.select(Some(n));
+                    offset = 0;
                 }
-                KeyCode::Char('l') => {
+                (KeyCode::Char('K'), KeyModifiers::SHIFT) => state.select(Some(0)),
+
+                (KeyCode::Char('h'), KeyModifiers::NONE) => {
+                    if root != prefix {
+                        root = root.parent().unwrap();
+                        state.select(Some(0));
+                    }
+                }
+                (KeyCode::Char('l'), KeyModifiers::NONE) => {
                     let n = state.selected().unwrap();
                     if n != 0 {
                         let new_root = children[n - 1];
@@ -88,7 +109,11 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>) -> Result<()> {
                         }
                     }
                 }
-                KeyCode::Char('q') => break,
+
+                (KeyCode::Char('g'), KeyModifiers::NONE) => offset = 0,
+                (KeyCode::Char('G'), KeyModifiers::NONE) => offset = u16::MAX,
+
+                (KeyCode::Char('q'), KeyModifiers::NONE) => break,
                 _ => (),
             },
             _ => (),
@@ -121,6 +146,7 @@ fn ui<B: Backend>(
     curdir: &Path,
     paths: &Vec<&Path>,
     state: &mut ListState,
+    offset: &mut u16,
     list_files: bool,
     compact: bool,
 ) {
@@ -128,6 +154,7 @@ fn ui<B: Backend>(
         .direction(Direction::Horizontal)
         .constraints([Constraint::Percentage(20), Constraint::Percentage(80)])
         .split(f.size());
+
     let items = once(ListItem::new(Text::raw(".")))
         .chain(
             paths
@@ -135,10 +162,12 @@ fn ui<B: Backend>(
                 .map(|path| ListItem::new(Text::raw(path.file_name().unwrap().to_str().unwrap()))),
         )
         .collect::<Vec<_>>();
+
     let list = List::new(items)
         .block(Block::default().title("Files").borders(Borders::ALL))
         .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
     f.render_stateful_widget(list, chunks[0], state);
+
     let output = print_languages(
         &languages,
         curdir,
@@ -148,10 +177,18 @@ fn ui<B: Backend>(
     )
     .unwrap();
     let text = output.into_text().unwrap();
-    let paragraph = Paragraph::new(text).block(
-        Block::default()
-            .title(curdir.to_str().unwrap())
-            .borders(Borders::ALL),
-    );
+
+    let height = f.size().height - 2;
+    let max_offset = (text.lines.len() as u16).saturating_sub(height);
+    *offset = cmp::min(*offset, max_offset);
+
+    let paragraph = Paragraph::new(text)
+        .block(
+            Block::default()
+                .title(curdir.to_str().unwrap())
+                .borders(Borders::ALL),
+        )
+        .scroll((*offset, 0))
+        .wrap(Wrap { trim: true });
     f.render_widget(paragraph, chunks[1]);
 }

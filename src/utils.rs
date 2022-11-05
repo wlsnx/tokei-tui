@@ -512,14 +512,14 @@ pub fn print_languages(
     width: usize,
 ) -> Result<Vec<u8>> {
     let row_len = if list_files {
-        width - 1
+        width - 2
     } else {
         FALLBACK_ROW_LEN
     };
     let mut printer = Printer::new(
         row_len,
         list_files,
-        io::BufWriter::new(Vec::new()),
+        Vec::new(),
         num_format::CustomFormat::default(),
     );
 
@@ -532,7 +532,7 @@ pub fn print_languages(
     printer.print_header()?;
     printer.print_results(languages.iter(), compact)?;
     printer.print_total(&languages)?;
-    Ok(printer.writer().buffer().to_owned())
+    Ok(printer.writer().to_owned())
 }
 
 pub fn longest_common_prefix(paths: &Vec<&Path>) -> PathBuf {
