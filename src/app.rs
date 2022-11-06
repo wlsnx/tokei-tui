@@ -16,7 +16,7 @@ use tui::{
     layout::{Constraint, Direction, Layout},
     style::{Modifier, Style},
     text::Text,
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
     Frame, Terminal,
 };
 
@@ -187,7 +187,6 @@ fn ui<B: Backend>(
                 .title(curdir.to_str().unwrap())
                 .borders(Borders::ALL),
         )
-        .scroll((*offset, 0))
-        .wrap(Wrap { trim: true });
+        .scroll((*offset, 0));
     f.render_widget(paragraph, chunks[1]);
 }

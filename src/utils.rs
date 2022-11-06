@@ -511,7 +511,7 @@ pub fn print_languages(
     width: usize,
 ) -> io::Result<Vec<u8>> {
     let row_len = if list_files {
-        width - 2
+        width.saturating_sub(2)
     } else {
         FALLBACK_ROW_LEN
     };
