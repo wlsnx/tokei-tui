@@ -8,7 +8,6 @@ use std::{
 
 use crate::utils::{longest_common_prefix, parse, print_languages};
 use ansi_to_tui::IntoText;
-use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use tokei::Languages;
 
@@ -21,7 +20,7 @@ use tui::{
     Frame, Terminal,
 };
 
-pub fn run<B: Backend>(terminal: &mut Terminal<B>) -> Result<()> {
+pub fn run<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
     let mut s = String::new();
     io::stdin().read_to_string(&mut s)?;
 
@@ -111,7 +110,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>) -> Result<()> {
                 }
 
                 (KeyCode::Char('g'), KeyModifiers::NONE) => offset = 0,
-                (KeyCode::Char('G'), KeyModifiers::NONE) => offset = u16::MAX,
+                (KeyCode::Char('G'), KeyModifiers::SHIFT) => offset = u16::MAX,
 
                 (KeyCode::Char('q'), KeyModifiers::NONE) => break,
                 _ => (),

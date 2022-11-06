@@ -1,4 +1,3 @@
-use anyhow::Result;
 use std::io;
 use tokei_tui::app::run;
 
@@ -10,7 +9,7 @@ use crossterm::{
 
 use tui::{backend::CrosstermBackend, Terminal};
 
-fn main() -> Result<()> {
+fn main() -> io::Result<()> {
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;

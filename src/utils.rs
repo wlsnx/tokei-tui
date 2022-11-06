@@ -7,7 +7,6 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::Result;
 // use clap::crate_version;
 use colored::Colorize;
 use num_format::ToFormattedString;
@@ -500,7 +499,7 @@ pub struct Output {
     totals: Language,
 }
 
-pub fn parse(input: &str) -> Result<Output> {
+pub fn parse(input: &str) -> io::Result<Output> {
     Ok(serde_json::from_str(input)?)
 }
 
@@ -510,7 +509,7 @@ pub fn print_languages(
     list_files: bool,
     compact: bool,
     width: usize,
-) -> Result<Vec<u8>> {
+) -> io::Result<Vec<u8>> {
     let row_len = if list_files {
         width - 2
     } else {
