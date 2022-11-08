@@ -71,6 +71,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
                 (KeyCode::Char('c'), KeyModifiers::NONE) => compact = !compact,
 
                 (KeyCode::Char('f'), KeyModifiers::NONE) => list_files = !list_files,
+
                 (KeyCode::Char('f'), KeyModifiers::CONTROL) => {
                     offset = offset.saturating_add(height);
                 }
