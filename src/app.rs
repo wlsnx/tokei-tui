@@ -40,6 +40,7 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
     let paths = path_map(files);
     let mut state = ListState::default();
     let mut offset = 0;
+    let mut path_offset = HashMap::new();
 
     loop {
         let children = &paths[&root];
@@ -95,8 +96,9 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
 
                 (KeyCode::Char('h'), KeyModifiers::NONE) => {
                     if root != prefix {
+                        path_offset.insert(root, state.selected().unwrap());
                         root = root.parent().unwrap();
-                        state.select(Some(0));
+                        state.select(Some(*path_offset.get(root).unwrap_or(&0)));
                     }
                 }
                 (KeyCode::Char('l'), KeyModifiers::NONE) => {
@@ -104,8 +106,9 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
                     if n != 0 {
                         let new_root = children[n - 1];
                         if paths.contains_key(new_root) {
-                            root = children[n - 1];
-                            state.select(Some(0));
+                            path_offset.insert(root, n);
+                            root = new_root;
+                            state.select(Some(*path_offset.get(root).unwrap_or(&0)));
                         }
                     }
                 }
