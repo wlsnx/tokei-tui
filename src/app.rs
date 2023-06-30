@@ -36,8 +36,11 @@ pub fn run<B: Backend>(terminal: &mut Terminal<B>) -> io::Result<()> {
         .flat_map(|(_, lan)| lan.reports.iter().map(|report| report.name.as_path()))
         .collect();
     let prefix = longest_common_prefix(&files);
-    let mut root = prefix.as_path();
     let paths = path_map(files);
+    let mut root = prefix.as_path();
+    if !paths.contains_key(root) {
+        root = root.parent().unwrap();
+    }
     let mut state = ListState::default();
     let mut offset = 0;
     let mut path_offset = HashMap::new();
